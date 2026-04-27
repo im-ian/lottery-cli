@@ -1,0 +1,29 @@
+{
+  "name": "lottery-auto",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "동행복권 자동 구매 및 결과 조회 CLI (개인용)",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test:login": "tsx src/test-login.ts",
+    "test:lotto": "tsx src/test-lotto.ts",
+    "test:pension": "tsx src/test-pension.ts",
+    "test:history": "tsx src/test-history.ts",
+    "test:deposit": "tsx src/test-deposit.ts",
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7.2.1",
+    "dotenv": "^16.4.7",
+    "picocolors": "^1.1.1",
+    "playwright": "^1.49.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
