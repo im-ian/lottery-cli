@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="302" font-family="Menlo, Monaco, Consolas, 'Courier New', monospace" font-size="14" xml:space="preserve">
+  <rect width="100%" height="100%" fill="#1e1e2e" rx="6"/>
+  <g fill="#cdd6f4">
+    <text x="20" y="36" font-weight="700" fill="#ffffff">? 조회 기간 <tspan font-weight="400" fill="#cdd6f4">최근 1주일</tspan></text>
+    <text x="20" y="58"><tspan fill="#cba6f7">▸</tspan> 구매/당첨 내역 페이지 진입</text>
+    <text x="20" y="80"><tspan fill="#cba6f7">▸</tspan> 기간 설정: 2026-04-20 ~ 2026-04-27</text>
+    <text x="20" y="102"><tspan fill="#cba6f7">▸</tspan> 조회 실행</text>
+    <text x="20" y="124"><tspan fill="#94e2d5">ℹ</tspan> 조회 기간: 2026-04-20 ~ 2026-04-27</text>
+    <text x="20" y="146"><tspan fill="#a6e3a1">✔</tspan> 총 6건</text>
+    <text x="20" y="168" fill="#6c7086">  1. [2026-04-24] 로또6/45 1234 · 자동 5게임 · 5매 · 미추첨 · 추첨까지 2일 (04/29 토 20:35)</text>
+    <text x="20" y="190" fill="#6c7086">  2. [2026-04-24] 연금복권720+ 313 · 2조 883032 · 1매 · 미추첨 · 추첨까지 3일 (04/30 목 20:35)</text>
+    <text x="20" y="212" fill="#6c7086">  3. [2026-04-24] 연금복권720+ 313 · 4조 091222 · 1매 · 미추첨 · 추첨까지 3일 (04/30 목 20:35)</text>
+    <text x="20" y="234" fill="#6c7086">  4. [2026-04-24] 연금복권720+ 313 · 3조 960720 · 1매 · 미추첨 · 추첨까지 3일 (04/30 목 20:35)</text>
+    <text x="20" y="256" fill="#6c7086">  5. [2026-04-24] 연금복권720+ 313 · 5조 486075 · 1매 · 미추첨 · 추첨까지 3일 (04/30 목 20:35)</text>
+    <text x="20" y="278" fill="#6c7086">  6. [2026-04-24] 연금복권720+ 313 · 5조 561043 · 1매 · 미추첨 · 추첨까지 3일 (04/30 목 20:35)</text>
+  </g>
+</svg>
