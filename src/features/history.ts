@@ -52,7 +52,7 @@ export async function runHistory(existing?: Session): Promise<void> {
   const session = existing ?? (await openSession());
   try {
     const entries = await fetchLedger(session.page, start, end);
-    printLedger(entries, start, end);
+    printLedger(entries, start, end, settings.briefHistory);
     if (settings.summarizeHistory && entries.length > 0) {
       printSummary(entries);
     }
@@ -159,7 +159,7 @@ function printSummary(entries: LedgerEntry[]): void {
   log.dim(`  손익(추정): ${netSign}${net.toLocaleString()}원`);
 }
 
-function printLedger(entries: LedgerEntry[], start: string, end: string): void {
+function printLedger(entries: LedgerEntry[], start: string, end: string, brief: boolean): void {
   log.info(`조회 기간: ${start} ~ ${end}`);
   if (entries.length === 0) {
     log.warn('조회된 내역이 없습니다');
@@ -168,7 +168,9 @@ function printLedger(entries: LedgerEntry[], start: string, end: string): void {
   log.success(`총 ${entries.length}건`);
   const now = new Date();
   entries.forEach((e, i) => {
-    const base = `  ${i + 1}. [${e.date}] ${e.name} ${e.round} · ${e.numbers} · ${e.quantity} · ${e.result} ${e.prize ? `(${e.prize})` : ''}`;
+    const base = brief
+      ? `  ${i + 1}. [${e.drawDate || e.date}] ${e.name} ${e.round} · ${e.result}${e.prize ? ` (${e.prize})` : ''}`
+      : `  ${i + 1}. [${e.date}] ${e.name} ${e.round} · ${e.numbers} · ${e.quantity} · ${e.result} ${e.prize ? `(${e.prize})` : ''}`;
     const countdown = isPending(e.result) ? formatDrawCountdown(e.name, now) : '';
     log.dim(`${base}${countdown}`);
   });
