@@ -9,6 +9,7 @@ export async function runSettingsMenu(): Promise<void> {
   // 매 루프 직전 이전 출력(헤더 + select 응답 echo) 라인 수만큼 커서 올린 뒤 지워서
   // 같은 자리에 메뉴를 다시 그린다. 이전 CLI 스크롤백은 보존.
   let linesToClear = 0;
+  let lastChoice: string | undefined;
 
   while (true) {
     if (linesToClear > 0) {
@@ -21,6 +22,7 @@ export async function runSettingsMenu(): Promise<void> {
 
     const action = await select({
       message: '설정 변경 (Esc: 메인으로)',
+      default: lastChoice,
       choices: [
         {
           name: `1. confirm 기본 선택값  현재: ${current.defaultConfirmYes ? 'Y' : 'N'}`,
@@ -38,6 +40,7 @@ export async function runSettingsMenu(): Promise<void> {
     linesToClear = header.length + 1;
 
     if (action === 'back') return;
+    lastChoice = action;
 
     const next: AppSettings = { ...current };
     if (action === 'defaultConfirmYes') next.defaultConfirmYes = !current.defaultConfirmYes;
