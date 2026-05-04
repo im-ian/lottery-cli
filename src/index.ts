@@ -39,7 +39,7 @@ async function main() {
         choices: [
           { name: '복권 구매', value: 'buy' },
           { name: '구매내역/당첨 결과 조회', value: 'history' },
-          { name: '⚙ 설정', value: 'settings' },
+          { name: '설정', value: 'settings' },
           { name: '종료', value: 'exit' },
         ],
       });
