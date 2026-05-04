@@ -3,6 +3,7 @@ import type { Page } from 'playwright';
 import { openSession, type Session } from '../auth/session.js';
 import { config } from '../config.js';
 import { log } from '../utils/log.js';
+import { loadSettings } from '../utils/settings.js';
 
 export interface LedgerEntry {
   date: string;
@@ -47,10 +48,14 @@ export async function runHistory(existing?: Session): Promise<void> {
     end = fmt(today);
   }
 
+  const settings = await loadSettings();
   const session = existing ?? (await openSession());
   try {
     const entries = await fetchLedger(session.page, start, end);
     printLedger(entries, start, end);
+    if (settings.summarizeHistory && entries.length > 0) {
+      printSummary(entries);
+    }
   } finally {
     if (!existing) await session.close();
   }
@@ -116,6 +121,42 @@ export async function fetchLedger(page: Page, start: string, end: string): Promi
 
 async function textOf(row: import('playwright').Locator, sel: string): Promise<string> {
   return (await row.locator(sel).first().innerText().catch(() => '')).trim().replace(/\s+/g, ' ');
+}
+
+function printSummary(entries: LedgerEntry[]): void {
+  const byName = new Map<string, number>();
+  const byResult = new Map<string, number>();
+  let totalSpent = 0;
+  let totalPrize = 0;
+  let pendingCount = 0;
+
+  for (const e of entries) {
+    byName.set(e.name, (byName.get(e.name) ?? 0) + 1);
+    const resultKey = e.result || '(미기재)';
+    byResult.set(resultKey, (byResult.get(resultKey) ?? 0) + 1);
+    if (isPending(e.result)) pendingCount += 1;
+    const qty = parseInt(e.quantity.replace(/[^\d]/g, ''), 10) || 0;
+    const unitPrice = /연금/.test(e.name) ? 1000 : 1000;
+    totalSpent += qty * unitPrice;
+    const prize = parseInt(e.prize.replace(/[^\d]/g, ''), 10) || 0;
+    totalPrize += prize;
+  }
+
+  log.info('────────  요약  ────────');
+  const nameLine = Array.from(byName.entries())
+    .map(([k, v]) => `${k} ${v}건`)
+    .join(', ');
+  log.dim(`  종류별: ${nameLine}`);
+  const resultLine = Array.from(byResult.entries())
+    .map(([k, v]) => `${k} ${v}건`)
+    .join(', ');
+  log.dim(`  결과별: ${resultLine}`);
+  if (pendingCount > 0) log.dim(`  미추첨 대기: ${pendingCount}건`);
+  log.dim(`  총 구매 추정: ${totalSpent.toLocaleString()}원`);
+  log.dim(`  총 당첨 합계: ${totalPrize.toLocaleString()}원`);
+  const net = totalPrize - totalSpent;
+  const netSign = net >= 0 ? '+' : '';
+  log.dim(`  손익(추정): ${netSign}${net.toLocaleString()}원`);
 }
 
 function printLedger(entries: LedgerEntry[], start: string, end: string): void {

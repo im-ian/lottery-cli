@@ -3,6 +3,7 @@ import { openSession, type Session } from '../auth/session.js';
 import { log } from '../utils/log.js';
 import { parseLottoNumbers, randomLottoNumbers, validateLottoNumbers } from '../utils/numbers.js';
 import { purchaseLotto, formatLottoReceiptLines } from '../games/lotto645.js';
+import { loadSettings } from '../utils/settings.js';
 
 export async function runLottoPurchase(existing?: Session): Promise<void> {
   const mode = (await select({
@@ -48,9 +49,10 @@ export async function runLottoPurchase(existing?: Session): Promise<void> {
   }
   log.info(`총 결제 예정 금액: ${totalPrice.toLocaleString()}원 (게임당 1,000원 × ${gameCount})`);
 
+  const settings = await loadSettings();
   const ok = await confirm({
     message: `${gameCount}게임 · ${totalPrice.toLocaleString()}원 실제 구매 진행?`,
-    default: false,
+    default: settings.defaultConfirmYes,
   });
   if (!ok) {
     log.warn('취소');

@@ -6,6 +6,7 @@ import { randomLottoNumbers, randomPensionNumbers } from '../utils/numbers.js';
 import { purchaseLotto, formatLottoReceiptLines } from '../games/lotto645.js';
 import { purchasePension } from '../games/pension720.js';
 import { promptPensionUpsellAction } from './pensionPurchase.js';
+import { loadSettings } from '../utils/settings.js';
 import type { WeeklyStatus } from './weeklyStatus.js';
 
 const GAMES_PER_TYPE = 5;
@@ -38,9 +39,10 @@ export async function runAutoAll(session: Session, status: WeeklyStatus | null):
     (buyPension ? GAMES_PER_TYPE * PENSION_GAME_PRICE : 0);
   log.info(`총 결제 예정 금액: ${total.toLocaleString()}원`);
 
+  const settings = await loadSettings();
   const ok = await confirm({
     message: `${total.toLocaleString()}원 실제 구매 진행?`,
-    default: false,
+    default: settings.defaultConfirmYes,
   });
   if (!ok) {
     log.warn('취소');

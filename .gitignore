@@ -3,6 +3,7 @@ node_modules/
 .env.local
 .auth/
 .debug/
+.lottery-auto/
 *.log
 dist/
 .DS_Store
