@@ -9,13 +9,24 @@ export interface LottoPurchaseRequest {
   dryRun: boolean; // if true, cancel confirmation popup
 }
 
+export interface LottoReceiptGame {
+  label: string; // A~E
+  pick: string; // '자동' | '수동' | '반자동'
+  numbers: number[]; // 6 nums
+}
+
 export interface LottoPurchaseResult {
   ok: boolean;
   message: string;
   deposit?: number;
+  deducted?: number;
   reservationNumber?: string;
-  rounds?: string;
-  games?: { pick: string; numbers: number[] }[];
+  round?: string;
+  issuedAt?: string;
+  drawAt?: string;
+  claimBy?: string;
+  amount?: string;
+  games?: LottoReceiptGame[];
 }
 
 export async function purchaseLotto(page: Page, req: LottoPurchaseRequest): Promise<LottoPurchaseResult> {
@@ -35,7 +46,7 @@ export async function purchaseLotto(page: Page, req: LottoPurchaseRequest): Prom
   log.step('구매하기 클릭');
   await page.click('#btnBuy');
 
-  const popupResult = await handleBuyPopup(page, req.dryRun);
+  const popupResult = await handleBuyPopup(page, req.dryRun, deposit);
   return popupResult;
 }
 
@@ -95,7 +106,11 @@ async function acceptJsAlerts(page: Page): Promise<void> {
   }
 }
 
-async function handleBuyPopup(page: Page, dryRun: boolean): Promise<LottoPurchaseResult> {
+async function handleBuyPopup(
+  page: Page,
+  dryRun: boolean,
+  initialDeposit: number,
+): Promise<LottoPurchaseResult> {
   await page.waitForTimeout(1500);
 
   const alert = page.locator('#popupLayerAlert');
@@ -108,7 +123,7 @@ async function handleBuyPopup(page: Page, dryRun: boolean): Promise<LottoPurchas
   const confirm = page.locator('#popupLayerConfirm');
   if ((await confirm.count()) > 0 && (await confirm.isVisible().catch(() => false))) {
     const msg = (await confirm.innerText().catch(() => '')).trim();
-    log.info(`확인 팝업: ${msg.slice(0, 150)}`);
+    log.info(`확인 팝업: ${msg.replace(/\s+/g, ' ').slice(0, 150)}`);
 
     if (dryRun) {
       log.warn('DRY_RUN: 확인 팝업을 취소합니다 (실제 결제 진행 안 함)');
@@ -116,7 +131,6 @@ async function handleBuyPopup(page: Page, dryRun: boolean): Promise<LottoPurchas
       return { ok: true, message: 'DRY_RUN 완료: 결제 확인 직전까지 검증됨' };
     }
 
-    const depositBefore = await readDeposit(page);
     await confirm.locator('input[onclick*="true"], a[onclick*="true"]').first().click();
     await page.waitForTimeout(4000);
 
@@ -130,16 +144,16 @@ async function handleBuyPopup(page: Page, dryRun: boolean): Promise<LottoPurchas
       }
     }
 
-    // 영수증 신뢰성 신호: 회차/발행일/복권번호/지급기한 같은 영수증 고유 키워드 포함
-    const isReceipt = !!receiptText && /(\d{3,4}\s*회|발\s*행\s*일|추\s*첨\s*일|지급\s*기한|구매\s*번호|구매내역)/.test(receiptText);
+    const parsed = parseLottoReceipt(receiptText);
+    const isReceipt =
+      !!parsed && (parsed.games.length > 0 || !!parsed.round || !!parsed.reservationNumber);
 
-    // 영수증이 떠 있는 동안 메인 페이지 잔액은 갱신되지 않을 수 있음 → 영수증 닫고 재확인
     if (isReceipt) {
       await closeAnyReceipt(page);
       await page.waitForTimeout(800);
     }
     const depositAfter = await readDeposit(page);
-    const deducted = depositBefore - depositAfter;
+    const deducted = initialDeposit > 0 ? initialDeposit - depositAfter : 0;
 
     const balancePart =
       deducted > 0
@@ -149,14 +163,18 @@ async function handleBuyPopup(page: Page, dryRun: boolean): Promise<LottoPurchas
           : '';
 
     if (isReceipt || deducted > 0) {
-      return {
+      const result: LottoPurchaseResult = {
         ok: true,
-        message: `구매 완료${balancePart}${receiptText ? `\n${receiptText.slice(0, 400)}` : ''}`,
+        message: `구매 완료${balancePart}`,
+        deposit: depositAfter,
+        ...(parsed ?? { games: [] }),
       };
+      if (deducted > 0) result.deducted = deducted;
+      return result;
     }
 
     if (receiptText) {
-      return { ok: false, message: `예상치 못한 응답: ${receiptText.slice(0, 300)}` };
+      return { ok: false, message: `예상치 못한 응답: ${receiptText.replace(/\s+/g, ' ').slice(0, 200)}` };
     }
 
     return {
@@ -181,4 +199,101 @@ async function closeAnyReceipt(page: Page): Promise<void> {
       await btn.click().catch(() => {});
     }
   }
+}
+
+interface ParsedReceipt {
+  round?: string;
+  issuedAt?: string;
+  drawAt?: string;
+  claimBy?: string;
+  reservationNumber?: string;
+  amount?: string;
+  games: LottoReceiptGame[];
+}
+
+const PICK_RE = /^(자\s*동|수\s*동|반\s*자\s*동)$/;
+const NUM_LINE_RE = /^([0-4]?\d)$/;
+const RESERVATION_RE = /^([\d\s]{20,})\*+$/;
+const NOISE_RE = /^(구매내역\s*확인|이\s*번호\s*저장|하트\s*표시.*저장됩니다\.?|복권\s*로또\s*645)$/;
+
+export function parseLottoReceipt(text: string): ParsedReceipt | null {
+  if (!text) return null;
+  const lines = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !NOISE_RE.test(l));
+  if (lines.length === 0) return null;
+
+  const out: ParsedReceipt = { games: [] };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    let m: RegExpMatchArray | null;
+    if ((m = line.match(/^제\s*(\d+)\s*회/))) {
+      if (m[1]) out.round = m[1];
+      continue;
+    }
+    if ((m = line.match(/^발\s*행\s*일\s*[:：]\s*(.+)$/))) {
+      out.issuedAt = m[1]!.trim();
+      continue;
+    }
+    if ((m = line.match(/^추\s*첨\s*일\s*[:：]\s*(.+)$/))) {
+      out.drawAt = m[1]!.trim();
+      continue;
+    }
+    if ((m = line.match(/^지급\s*기한\s*[:：]\s*(.+)$/))) {
+      out.claimBy = m[1]!.trim();
+      continue;
+    }
+    if ((m = line.match(/^금액\s*[:：]\s*([\d,]+)/))) {
+      out.amount = m[1]!.replace(/,/g, '');
+      continue;
+    }
+    if ((m = line.match(RESERVATION_RE))) {
+      out.reservationNumber = m[1]!.replace(/\s+/g, ' ').trim();
+      continue;
+    }
+    if (/^[A-E]$/.test(line)) {
+      const next = lines[i + 1];
+      if (next && PICK_RE.test(next)) {
+        const pick = next.replace(/\s+/g, '');
+        const nums: number[] = [];
+        let j = i + 2;
+        while (j < lines.length && nums.length < 6) {
+          const nm = lines[j]!.match(NUM_LINE_RE);
+          if (!nm) break;
+          const n = Number(nm[1]);
+          if (n < 1 || n > 45) break;
+          nums.push(n);
+          j++;
+        }
+        if (nums.length === 6) {
+          out.games.push({ label: line, pick, numbers: nums });
+          i = j - 1;
+          continue;
+        }
+      }
+    }
+  }
+
+  return out;
+}
+
+export function formatLottoReceiptLines(result: LottoPurchaseResult): string[] {
+  const lines: string[] = [];
+  if (result.round) {
+    const draw = result.drawAt ? ` · 추첨 ${result.drawAt}` : '';
+    lines.push(`제 ${result.round}회${draw}`);
+  }
+  for (const g of result.games ?? []) {
+    const nums = g.numbers.map((n) => String(n).padStart(2, '0')).join(' ');
+    lines.push(`  ${g.label}. ${g.pick}  ${nums}`);
+  }
+  if (result.amount) {
+    lines.push(`금액 ${Number(result.amount).toLocaleString()}원`);
+  }
+  if (result.reservationNumber) {
+    lines.push(`복권번호 ${result.reservationNumber}`);
+  }
+  return lines;
 }

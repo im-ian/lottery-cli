@@ -3,7 +3,7 @@ import pc from 'picocolors';
 import type { Session } from '../auth/session.js';
 import { log } from '../utils/log.js';
 import { randomLottoNumbers, randomPensionNumbers } from '../utils/numbers.js';
-import { purchaseLotto } from '../games/lotto645.js';
+import { purchaseLotto, formatLottoReceiptLines } from '../games/lotto645.js';
 import { purchasePension } from '../games/pension720.js';
 import type { WeeklyStatus } from './weeklyStatus.js';
 
@@ -57,8 +57,10 @@ export async function runAutoAll(session: Session, status: WeeklyStatus | null):
         gameCount: GAMES_PER_TYPE,
         dryRun: false,
       });
-      if (result.ok) log.success(`[로또] ${result.message}`);
-      else log.error(`[로또] ${result.message}`);
+      if (result.ok) {
+        log.success(`[로또] ${result.message}`);
+        for (const line of formatLottoReceiptLines(result)) log.dim(`    ${line}`);
+      } else log.error(`[로또] ${result.message}`);
     } catch (err) {
       log.error(`[로또] 예외: ${err instanceof Error ? err.message : String(err)}`);
     }
