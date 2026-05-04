@@ -150,8 +150,12 @@ async function handleBuyPopup(
 
     if (isReceipt) {
       await closeAnyReceipt(page);
-      await page.waitForTimeout(800);
+      await page.waitForTimeout(500);
     }
+    // 페이지 reload 없이 readDeposit을 부르면 헤더 DOM이 구매 전 값 그대로라
+    // depositAfter == initialDeposit이 되어 차감 금액이 0으로 보임.
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(500);
     const depositAfter = await readDeposit(page);
     const deducted = initialDeposit > 0 ? initialDeposit - depositAfter : 0;
 

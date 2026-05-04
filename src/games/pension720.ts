@@ -225,7 +225,11 @@ async function clickBuyWithDialogs(page: Page, frame: FrameLocator, dryRun: bool
   if (paid) {
     const orderNo = (await frame.locator('#lotto720_popup_pay .orderNo').innerText().catch(() => '')).trim();
     const orderDate = (await frame.locator('#lotto720_popup_pay .orderDate').innerText().catch(() => '')).trim();
-    const depositAfter = await readPensionDeposit(frame);
+    // 결제 완료 팝업 안의 frame body는 결제 전 텍스트 그대로 캐시됨 →
+    // 페이지 reload로 강제 갱신 후 잔액 재조회. (orderNo/Date는 위에서 이미 읽음)
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+    const depositAfter = await readPensionDeposit(page.frameLocator('#ifrm_tab'));
     const deducted = depositBefore - depositAfter;
     return {
       ok: true,
