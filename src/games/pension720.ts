@@ -2,11 +2,17 @@ import type { Page, FrameLocator, Dialog } from 'playwright';
 import { config } from '../config.js';
 import { log } from '../utils/log.js';
 
+export type UpsellDialogAction = 'accept' | 'dismiss';
+
 export interface PensionPurchaseRequest {
   mode: 'auto' | 'manual';
   games: { group: 'all' | number; digits: string }[];
   gameCount: number;
   dryRun: boolean;
+  // 모든조 구매 권유 native confirm dialog 처리 방식.
+  // 'accept' = 안내 무시하고 원래 선택대로 결제(기본). 'dismiss' = 결제 취소.
+  // 미지정 시 'accept'.
+  upsellDialogAction?: UpsellDialogAction;
 }
 
 export interface PensionPurchaseResult {
@@ -43,7 +49,7 @@ export async function purchasePension(page: Page, req: PensionPurchaseRequest): 
 
   await waitForLoadingDone(frame);
   await dismissRecommendPopup(frame);
-  return await clickBuyWithDialogs(page, frame, req.dryRun);
+  return await clickBuyWithDialogs(page, frame, req);
 }
 
 async function waitForLoadingDone(frame: FrameLocator): Promise<void> {
@@ -159,8 +165,15 @@ async function enterDigits(frame: FrameLocator, digits: string): Promise<void> {
   }
 }
 
-async function clickBuyWithDialogs(page: Page, frame: FrameLocator, dryRun: boolean): Promise<PensionPurchaseResult> {
+async function clickBuyWithDialogs(
+  page: Page,
+  frame: FrameLocator,
+  req: PensionPurchaseRequest,
+): Promise<PensionPurchaseResult> {
+  const dryRun = req.dryRun;
+  const upsellAction: UpsellDialogAction = req.upsellDialogAction ?? 'accept';
   const dialogs: { type: string; message: string }[] = [];
+  let upsellDismissed = false;
 
   const handler = async (dialog: Dialog) => {
     const t = dialog.type();
@@ -169,8 +182,15 @@ async function clickBuyWithDialogs(page: Page, frame: FrameLocator, dryRun: bool
     log.info(`[dialog] ${t}: ${m.replace(/\n/g, ' ')}`);
 
     if (t === 'confirm') {
-      // 1단계 confirm: 모든조 구매 권유 dialog. dryRun이어도 일단 accept해야 in-frame popup까지 볼 수 있음.
-      await dialog.accept();
+      // 1단계 confirm: 모든조 구매 권유 dialog. 사용자가 dismiss를 고른 경우에만 취소.
+      // dryRun이어도 accept해야 in-frame popup까지 볼 수 있음.
+      if (upsellAction === 'dismiss' && !dryRun) {
+        log.warn('  → upsellDialogAction=dismiss: 결제 취소');
+        upsellDismissed = true;
+        await dialog.dismiss();
+      } else {
+        await dialog.accept();
+      }
     } else {
       await dialog.dismiss();
     }
@@ -186,6 +206,10 @@ async function clickBuyWithDialogs(page: Page, frame: FrameLocator, dryRun: bool
     await page.waitForTimeout(1500);
   } finally {
     page.off('dialog', handler);
+  }
+
+  if (upsellDismissed) {
+    return { ok: false, message: '사용자가 모든조 구매 권유 안내에서 취소를 선택해 결제 중단됨' };
   }
 
   const alertDialog = dialogs.find((d) => d.type === 'alert');
