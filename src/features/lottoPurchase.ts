@@ -2,7 +2,7 @@ import { input, select, confirm } from '@inquirer/prompts';
 import { openSession, type Session } from '../auth/session.js';
 import { log } from '../utils/log.js';
 import { parseLottoNumbers, randomLottoNumbers, validateLottoNumbers } from '../utils/numbers.js';
-import { purchaseLotto } from '../games/lotto645.js';
+import { purchaseLotto, formatLottoReceiptLines } from '../games/lotto645.js';
 
 export async function runLottoPurchase(existing?: Session): Promise<void> {
   const mode = (await select({
@@ -65,8 +65,10 @@ export async function runLottoPurchase(existing?: Session): Promise<void> {
       gameCount,
       dryRun: false,
     });
-    if (result.ok) log.success(result.message);
-    else log.error(result.message);
+    if (result.ok) {
+      log.success(result.message);
+      for (const line of formatLottoReceiptLines(result)) log.dim(`  ${line}`);
+    } else log.error(result.message);
   } finally {
     if (!existing) await session.close();
   }
