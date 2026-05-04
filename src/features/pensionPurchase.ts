@@ -2,7 +2,19 @@ import { input, select, confirm } from '@inquirer/prompts';
 import { openSession, type Session } from '../auth/session.js';
 import { log } from '../utils/log.js';
 import { randomPensionNumbers, validatePensionDigits } from '../utils/numbers.js';
-import { purchasePension } from '../games/pension720.js';
+import { purchasePension, type UpsellDialogAction } from '../games/pension720.js';
+
+export async function promptPensionUpsellAction(): Promise<UpsellDialogAction> {
+  return (await select({
+    message:
+      '결제 중 "모든조 구매 시 1·2등 동시 당첨 가능 (총 21.6억). 정말 구매하시겠습니까?" 안내가 뜨면?',
+    choices: [
+      { name: '확인 — 원래 선택대로 결제 진행 (권장)', value: 'accept' },
+      { name: '취소 — 결제 중단', value: 'dismiss' },
+    ],
+    default: 'accept',
+  })) as UpsellDialogAction;
+}
 
 export async function runPensionPurchase(existing?: Session): Promise<void> {
   const mode = (await select({
@@ -72,9 +84,17 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
     return;
   }
 
+  const upsellDialogAction = await promptPensionUpsellAction();
+
   const session = existing ?? (await openSession());
   try {
-    const result = await purchasePension(session.page, { mode, games, gameCount, dryRun: false });
+    const result = await purchasePension(session.page, {
+      mode,
+      games,
+      gameCount,
+      dryRun: false,
+      upsellDialogAction,
+    });
     if (result.ok) log.success(result.message);
     else log.error(result.message);
   } finally {

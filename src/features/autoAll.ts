@@ -5,6 +5,7 @@ import { log } from '../utils/log.js';
 import { randomLottoNumbers, randomPensionNumbers } from '../utils/numbers.js';
 import { purchaseLotto, formatLottoReceiptLines } from '../games/lotto645.js';
 import { purchasePension } from '../games/pension720.js';
+import { promptPensionUpsellAction } from './pensionPurchase.js';
 import type { WeeklyStatus } from './weeklyStatus.js';
 
 const GAMES_PER_TYPE = 5;
@@ -46,6 +47,8 @@ export async function runAutoAll(session: Session, status: WeeklyStatus | null):
     return;
   }
 
+  const upsellDialogAction = buyPension ? await promptPensionUpsellAction() : 'accept';
+
   if (buyLotto) {
     console.log();
     log.step('── [1/2] 로또 6/45 자동 구매 ──');
@@ -79,6 +82,7 @@ export async function runAutoAll(session: Session, status: WeeklyStatus | null):
         games,
         gameCount: GAMES_PER_TYPE,
         dryRun: false,
+        upsellDialogAction,
       });
       if (result.ok) log.success(`[연금] ${result.message}`);
       else log.error(`[연금] ${result.message}`);
