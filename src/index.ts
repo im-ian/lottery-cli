@@ -9,9 +9,12 @@ import { runHistory } from './features/history.js';
 import { getWeeklyStatus, type WeeklyStatus } from './features/weeklyStatus.js';
 import { getDeposit } from './features/deposit.js';
 import { runAutoAll } from './features/autoAll.js';
+import { runSettingsMenu } from './features/settings.js';
+import { loadSettings } from './utils/settings.js';
 
 async function main() {
   log.info('동행복권 자동 CLI');
+  await loadSettings();
 
   let session: Session | null = null;
   try {
@@ -36,6 +39,7 @@ async function main() {
         choices: [
           { name: '복권 구매', value: 'buy' },
           { name: '구매내역/당첨 결과 조회', value: 'history' },
+          { name: '⚙ 설정', value: 'settings' },
           { name: '종료', value: 'exit' },
         ],
       });
@@ -43,6 +47,16 @@ async function main() {
       if (action === 'exit') {
         log.info('종료합니다. 안녕히 가세요 👋');
         break;
+      }
+
+      if (action === 'settings') {
+        try {
+          await runSettingsMenu();
+        } catch (err) {
+          log.error(err instanceof Error ? err.message : String(err));
+        }
+        console.log();
+        continue;
       }
 
       if (!session) session = await openSession();

@@ -3,6 +3,7 @@ import { openSession, type Session } from '../auth/session.js';
 import { log } from '../utils/log.js';
 import { randomPensionNumbers, validatePensionDigits } from '../utils/numbers.js';
 import { purchasePension, type UpsellDialogAction } from '../games/pension720.js';
+import { loadSettings } from '../utils/settings.js';
 
 export async function promptPensionUpsellAction(): Promise<UpsellDialogAction> {
   return (await select({
@@ -75,9 +76,10 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
   );
   log.info(`총 결제 예정 금액: ${totalPrice.toLocaleString()}원`);
 
+  const settings = await loadSettings();
   const ok = await confirm({
     message: `${gameCount}게임 · ${totalPrice.toLocaleString()}원 실제 구매 진행?`,
-    default: false,
+    default: settings.defaultConfirmYes,
   });
   if (!ok) {
     log.warn('취소');
