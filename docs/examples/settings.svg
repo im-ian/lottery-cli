@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="236" font-family="Menlo, Monaco, Consolas, 'Courier New', monospace" font-size="14" xml:space="preserve">
+  <rect width="100%" height="100%" fill="#1e1e2e" rx="6"/>
+  <g fill="#cdd6f4">
+    <text x="20" y="36"><tspan fill="#94e2d5">ℹ</tspan> 현재 설정:</text>
+    <text x="20" y="58" fill="#6c7086">  · confirm 기본 선택값: N (Enter=취소)</text>
+    <text x="20" y="80" fill="#6c7086">  · 조회 결과 간단히 출력: OFF</text>
+    <text x="20" y="102" fill="#6c7086">  · 조회 결과 요약 출력: OFF</text>
+    <text x="20" y="124" font-weight="700" fill="#ffffff">? 설정 변경 (Esc: 메인으로)</text>
+    <text x="20" y="146"><tspan fill="#94e2d5">❯</tspan> 1. confirm 기본 선택값  현재: N</text>
+    <text x="20" y="168">  2. 조회 결과 간단히 출력  현재: OFF</text>
+    <text x="20" y="190">  3. 조회 결과 요약 출력  현재: OFF</text>
+    <text x="20" y="212">  메인으로 돌아가기</text>
+  </g>
+</svg>
