@@ -168,12 +168,30 @@ function printLedger(entries: LedgerEntry[], start: string, end: string, brief: 
   log.success(`총 ${entries.length}건`);
   const now = new Date();
   entries.forEach((e, i) => {
+    const pending = isPending(e.result);
+    const purchaseDate = cleanDate(e.date);
+    const drawDate = cleanDate(e.drawDate);
+    // brief: 미추첨이면 [구매일] (추첨일은 카운트다운에서 표시), 추첨 후면 [추첨일]
+    // normal: 항상 [구매일]
+    const prefixLabel = brief
+      ? pending
+        ? `구매 ${purchaseDate}`
+        : `추첨 ${drawDate || purchaseDate}`
+      : purchaseDate;
     const base = brief
-      ? `  ${i + 1}. [${e.drawDate || e.date}] ${e.name} ${e.round} · ${e.result}${e.prize ? ` (${e.prize})` : ''}`
-      : `  ${i + 1}. [${e.date}] ${e.name} ${e.round} · ${e.numbers} · ${e.quantity} · ${e.result} ${e.prize ? `(${e.prize})` : ''}`;
-    const countdown = isPending(e.result) ? formatDrawCountdown(e.name, now) : '';
+      ? `  ${i + 1}. [${prefixLabel}] ${e.name} ${e.round} · ${e.result}${e.prize ? ` (${e.prize})` : ''}`
+      : `  ${i + 1}. [${prefixLabel}] ${e.name} ${e.round} · ${e.numbers} · ${e.quantity} · ${e.result} ${e.prize ? `(${e.prize})` : ''}`;
+    const countdown = pending ? formatDrawCountdown(e.name, now) : '';
     log.dim(`${base}${countdown}`);
   });
+}
+
+// 동행복권 사이트 셀 텍스트엔 "추첨일자 2026-05-07" 같이 라벨이 같이 붙어 옴.
+// 날짜 토큰만 추출. 매치 실패 시 원본 그대로 반환.
+function cleanDate(raw: string): string {
+  if (!raw) return raw;
+  const m = raw.match(/\d{4}[-/.]\d{1,2}[-/.]\d{1,2}/);
+  return m ? m[0] : raw.replace(/^[가-힣]+\s*/, '').trim();
 }
 
 function isPending(result: string): boolean {
