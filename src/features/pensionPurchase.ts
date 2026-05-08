@@ -4,6 +4,7 @@ import { log } from '../utils/log.js';
 import { randomPensionNumbers, validatePensionDigits } from '../utils/numbers.js';
 import { purchasePension, type UpsellDialogAction } from '../games/pension720.js';
 import { loadSettings } from '../utils/settings.js';
+import { ensureSufficientDeposit } from './chargeDeposit.js';
 
 export async function promptPensionUpsellAction(): Promise<UpsellDialogAction> {
   return (await select({
@@ -90,6 +91,12 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
 
   const session = existing ?? (await openSession());
   try {
+    const depositCheck = await ensureSufficientDeposit(session, totalPrice);
+    if (!depositCheck.ok) {
+      log.warn('예치금이 부족하여 구매를 진행하지 않습니다.');
+      return;
+    }
+
     const result = await purchasePension(session.page, {
       mode,
       games,

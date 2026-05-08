@@ -10,6 +10,8 @@ import { getWeeklyStatus, type WeeklyStatus } from './features/weeklyStatus.js';
 import { getDeposit } from './features/deposit.js';
 import { runAutoAll } from './features/autoAll.js';
 import { runSettingsMenu } from './features/settings.js';
+import { runOpenSite } from './features/openSite.js';
+import { runChargeDeposit } from './features/chargeDeposit.js';
 import { loadSettings } from './utils/settings.js';
 
 async function main() {
@@ -39,6 +41,8 @@ async function main() {
         choices: [
           { name: '복권 구매', value: 'buy' },
           { name: '구매내역/당첨 결과 조회', value: 'history' },
+          { name: '예치금 충전', value: 'charge' },
+          { name: '동행복권 사이트 열기', value: 'open-site' },
           { name: '설정', value: 'settings' },
           { name: '종료', value: 'exit' },
         ],
@@ -59,6 +63,16 @@ async function main() {
         continue;
       }
 
+      if (action === 'open-site') {
+        try {
+          await runOpenSite();
+        } catch (err) {
+          log.error(err instanceof Error ? err.message : String(err));
+        }
+        console.log();
+        continue;
+      }
+
       if (!session) session = await openSession();
 
       try {
@@ -66,6 +80,10 @@ async function main() {
           await runHistory(session);
         } else if (action === 'buy') {
           await runBuyFlow(session);
+        } else if (action === 'charge') {
+          const result = await runChargeDeposit(session);
+          if (result.ok) log.success(result.message);
+          else log.warn(result.message);
         }
       } catch (err) {
         log.error(err instanceof Error ? err.message : String(err));

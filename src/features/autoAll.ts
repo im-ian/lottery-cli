@@ -7,6 +7,7 @@ import { purchaseLotto, formatLottoReceiptLines } from '../games/lotto645.js';
 import { purchasePension } from '../games/pension720.js';
 import { promptPensionUpsellAction } from './pensionPurchase.js';
 import { loadSettings } from '../utils/settings.js';
+import { ensureSufficientDeposit } from './chargeDeposit.js';
 import type { WeeklyStatus } from './weeklyStatus.js';
 
 const GAMES_PER_TYPE = 5;
@@ -50,6 +51,12 @@ export async function runAutoAll(session: Session, status: WeeklyStatus | null):
   }
 
   const upsellDialogAction = buyPension ? await promptPensionUpsellAction() : 'accept';
+
+  const depositCheck = await ensureSufficientDeposit(session, total);
+  if (!depositCheck.ok) {
+    log.warn('예치금이 부족하여 구매를 진행하지 않습니다.');
+    return;
+  }
 
   if (buyLotto) {
     console.log();

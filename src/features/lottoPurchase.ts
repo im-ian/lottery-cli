@@ -4,6 +4,7 @@ import { log } from '../utils/log.js';
 import { parseLottoNumbers, randomLottoNumbers, validateLottoNumbers } from '../utils/numbers.js';
 import { purchaseLotto, formatLottoReceiptLines } from '../games/lotto645.js';
 import { loadSettings } from '../utils/settings.js';
+import { ensureSufficientDeposit } from './chargeDeposit.js';
 
 export async function runLottoPurchase(existing?: Session): Promise<void> {
   const mode = (await select({
@@ -61,6 +62,12 @@ export async function runLottoPurchase(existing?: Session): Promise<void> {
 
   const session = existing ?? (await openSession());
   try {
+    const depositCheck = await ensureSufficientDeposit(session, totalPrice);
+    if (!depositCheck.ok) {
+      log.warn('예치금이 부족하여 구매를 진행하지 않습니다.');
+      return;
+    }
+
     const result = await purchaseLotto(session.page, {
       mode,
       games,
