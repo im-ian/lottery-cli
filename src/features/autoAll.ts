@@ -16,7 +16,9 @@ const PENSION_GAME_PRICE = 1000;
 
 export async function runAutoAll(session: Session, status: WeeklyStatus | null): Promise<void> {
   const buyLotto = !status?.lotto645.purchased;
-  const buyPension = !status?.pension720.purchased;
+  // 연금복권 720+ 는 회차당 다회 구매 가능 → 이미 구매 여부와 무관하게 항상 진행.
+  const buyPension = true;
+  const pensionAlreadyBought = !!status?.pension720.purchased;
 
   log.info('모두 자동 구매 계획:');
   console.log(
@@ -25,13 +27,13 @@ export async function runAutoAll(session: Session, status: WeeklyStatus | null):
       : pc.dim(`  · 로또 6/45 — 이번 주 이미 구매함, 건너뜀`),
   );
   console.log(
-    buyPension
-      ? pc.cyan(`  · 연금복권 720+ 자동 ${GAMES_PER_TYPE}게임 (${(GAMES_PER_TYPE * PENSION_GAME_PRICE).toLocaleString()}원)`)
-      : pc.dim(`  · 연금복권 720+ — 이번 주 이미 구매함, 건너뜀`),
+    pensionAlreadyBought
+      ? pc.cyan(`  · 연금복권 720+ 자동 ${GAMES_PER_TYPE}게임 (${(GAMES_PER_TYPE * PENSION_GAME_PRICE).toLocaleString()}원) — 이번 주 이미 구매했지만 추가 구매 진행`)
+      : pc.cyan(`  · 연금복권 720+ 자동 ${GAMES_PER_TYPE}게임 (${(GAMES_PER_TYPE * PENSION_GAME_PRICE).toLocaleString()}원)`),
   );
 
   if (!buyLotto && !buyPension) {
-    log.warn('두 종류 모두 이번 주 이미 구매한 상태 → 실행할 작업 없음');
+    log.warn('실행할 작업이 없습니다.');
     return;
   }
 
@@ -46,7 +48,7 @@ export async function runAutoAll(session: Session, status: WeeklyStatus | null):
     default: settings.defaultConfirmYes,
   });
   if (!ok) {
-    log.warn('취소');
+    log.warn('취소되었습니다.');
     return;
   }
 
