@@ -56,7 +56,7 @@ export async function runLottoPurchase(existing?: Session): Promise<void> {
     default: settings.defaultConfirmYes,
   });
   if (!ok) {
-    log.warn('취소');
+    log.warn('취소되었습니다.');
     return;
   }
 
