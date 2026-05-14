@@ -106,17 +106,10 @@ async function runBuyFlow(session: Session): Promise<void> {
     log.warn(`구매 현황 확인 실패 (계속 진행): ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  const bothBought = !!status?.lotto645.purchased && !!status?.pension720.purchased;
-
   const lottoBoughtReason = status?.lotto645.purchased
     ? `이미 구매함 — 다음 회차는 ${status.lotto645.nextDrawAt} 이후`
     : false;
-  const pensionBoughtReason = status?.pension720.purchased
-    ? `이미 구매함 — 다음 회차는 ${status.pension720.nextDrawAt} 이후`
-    : false;
-  const allBoughtReason = bothBought
-    ? `둘 다 이미 구매함`
-    : false;
+  // 연금복권 720+ 는 회차당 다회 구매 가능 → 이미 구매했어도 disable 하지 않음.
 
   const game = await select({
     message: '어떤 복권을 구매할까요? (Esc: 메인으로)',
@@ -124,7 +117,7 @@ async function runBuyFlow(session: Session): Promise<void> {
       {
         name: '⚡ 모두 자동 구매 (로또 5게임 + 연금 5게임, 최대 10,000원)',
         value: 'auto-all',
-        disabled: allBoughtReason,
+        disabled: lottoBoughtReason,
       },
       {
         name: '로또 6/45',
@@ -134,7 +127,6 @@ async function runBuyFlow(session: Session): Promise<void> {
       {
         name: '연금복권 720+',
         value: 'pension720',
-        disabled: pensionBoughtReason,
       },
       { name: '스피또 (온라인 구매 불가 — 안내만)', value: 'speetto' },
       { name: '◀ 메인으로 돌아가기', value: 'back' },
