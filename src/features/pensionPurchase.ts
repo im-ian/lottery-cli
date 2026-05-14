@@ -83,7 +83,7 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
     default: settings.defaultConfirmYes,
   });
   if (!ok) {
-    log.warn('취소');
+    log.warn('취소되었습니다.');
     return;
   }
 
