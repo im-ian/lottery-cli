@@ -6,14 +6,19 @@ import { LOTTO_MAX_GAMES_PER_ROUND, purchaseLotto, formatLottoReceiptLines } fro
 import { loadSettings } from '../utils/settings.js';
 import { ensureSufficientDeposit } from './chargeDeposit.js';
 
+type LottoPromptMode = 'auto' | 'manual' | 'back';
+
 export async function runLottoPurchase(existing?: Session): Promise<void> {
-  const mode = (await select({
+  const mode = await select<LottoPromptMode>({
     message: '번호 선택 방식',
     choices: [
       { name: '자동 (랜덤)', value: 'auto' },
       { name: '수동 (직접 입력)', value: 'manual' },
+      { name: '◀ 메인으로 돌아가기', value: 'back' },
     ],
-  })) as 'auto' | 'manual';
+  });
+
+  if (mode === 'back') return;
 
   const gameCount = Number(
     await input({

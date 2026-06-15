@@ -8,6 +8,9 @@ import { ensureSufficientDeposit } from './chargeDeposit.js';
 
 const MAX_CHAINED_GAMES = 50;
 
+type PensionPromptMode = 'auto' | 'manual' | 'back';
+type PensionGroupChoice = 'all' | '1' | '2' | '3' | '4' | '5' | 'back';
+
 export async function promptPensionUpsellAction(): Promise<UpsellDialogAction> {
   return (await select({
     message:
@@ -21,13 +24,16 @@ export async function promptPensionUpsellAction(): Promise<UpsellDialogAction> {
 }
 
 export async function runPensionPurchase(existing?: Session): Promise<void> {
-  const mode = (await select({
+  const mode = await select<PensionPromptMode>({
     message: '번호 선택 방식',
     choices: [
       { name: '자동 (랜덤)', value: 'auto' },
       { name: '수동 (직접 입력)', value: 'manual' },
+      { name: '◀ 메인으로 돌아가기', value: 'back' },
     ],
-  })) as 'auto' | 'manual';
+  });
+
+  if (mode === 'back') return;
 
   const gameCount = Number(
     await input({
@@ -46,7 +52,7 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
   const games: { group: 'all' | number; digits: string }[] = [];
   if (mode === 'manual') {
     for (let i = 0; i < gameCount; i++) {
-      const groupRaw = await select({
+      const groupRaw = await select<PensionGroupChoice>({
         message: `게임 ${i + 1} 조 선택`,
         choices: [
           { name: '모든 조', value: 'all' },
@@ -55,8 +61,10 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
           { name: '3조', value: '3' },
           { name: '4조', value: '4' },
           { name: '5조', value: '5' },
+          { name: '◀ 메인으로 돌아가기', value: 'back' },
         ],
       });
+      if (groupRaw === 'back') return;
       const group: 'all' | number = groupRaw === 'all' ? 'all' : Number(groupRaw);
       const digits = await input({
         message: `게임 ${i + 1} 6자리 번호`,
