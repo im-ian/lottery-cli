@@ -138,7 +138,7 @@ async function promptChargeAmount(suggestedMin?: number): Promise<number | null>
     choices: [
       ...presetChoices,
       { name: '직접 입력 (지원 금액으로 올림)', value: 'custom' },
-      { name: '취소', value: 'cancel' },
+      { name: '◀ 메인으로 돌아가기', value: 'cancel' },
     ],
     default: String(normalizeToSupportedAmount(suggestedMin ?? 10000) ?? MAX_AMOUNT),
   });

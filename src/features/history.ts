@@ -17,16 +17,21 @@ export interface LedgerEntry {
   claimStatus: string;
 }
 
+type HistoryRange = 'today' | 'week' | 'month' | 'custom' | 'back';
+
 export async function runHistory(existing?: Session): Promise<void> {
-  const range = (await select({
+  const range = await select<HistoryRange>({
     message: '조회 기간',
     choices: [
       { name: '당일', value: 'today' },
       { name: '최근 1주일', value: 'week' },
       { name: '최근 1개월', value: 'month' },
       { name: '직접 입력', value: 'custom' },
+      { name: '◀ 메인으로 돌아가기', value: 'back' },
     ],
-  })) as 'today' | 'week' | 'month' | 'custom';
+  });
+
+  if (range === 'back') return;
 
   let start: string;
   let end: string;
