@@ -3,6 +3,7 @@ import { config } from '../config.js';
 import { log } from '../utils/log.js';
 
 export type UpsellDialogAction = 'accept' | 'dismiss';
+export const PENSION_MAX_GAMES_PER_PURCHASE = 5;
 
 export interface PensionPurchaseRequest {
   mode: 'auto' | 'manual';
@@ -21,6 +22,13 @@ export interface PensionPurchaseResult {
 }
 
 export async function purchasePension(page: Page, req: PensionPurchaseRequest): Promise<PensionPurchaseResult> {
+  if (req.games.length > PENSION_MAX_GAMES_PER_PURCHASE) {
+    return {
+      ok: false,
+      message: `연금복권은 한 번에 최대 ${PENSION_MAX_GAMES_PER_PURCHASE}게임까지만 구매할 수 있습니다. 호출부에서 나누어 구매해야 합니다.`,
+    };
+  }
+
   log.step('연금복권 구매 페이지 진입');
   await page.goto(config.urls.pensionBuy, { waitUntil: 'networkidle', timeout: 30000 });
   await page.waitForTimeout(3000);
