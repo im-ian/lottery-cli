@@ -32,7 +32,7 @@ export const config = {
     lotto645Buy: 'https://ol.dhlottery.co.kr/olotto/game/game645.do',
     pensionBuy: 'https://el.dhlottery.co.kr/game/TotalGame.jsp?LottoId=LP72',
     myLedger: 'https://www.dhlottery.co.kr/mypage/mylotteryledger',
-    charge: 'https://dhlottery.co.kr/userSsl.do?method=payment',
+    charge: 'https://www.dhlottery.co.kr/mypage/mndpChrg',
   },
   paths: {
     storageState: '.auth/storageState.json',
