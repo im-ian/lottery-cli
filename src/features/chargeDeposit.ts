@@ -45,6 +45,17 @@ export async function runChargeDeposit(session: Session, suggestedMin?: number):
     return { ok: false, depositBefore: 0, depositAfter: 0, charged: 0, message: '충전 취소' };
   }
 
+  const settings = await loadSettings();
+  if (settings.testMode) {
+    return {
+      ok: false,
+      depositBefore: 0,
+      depositAfter: 0,
+      charged: 0,
+      message: `테스트 모드 ON: 가상계좌 발급을 진행하지 않았습니다 (선택 금액 ${amount.toLocaleString()}원).`,
+    };
+  }
+
   if (suggestedMin && amount < suggestedMin) {
     log.warn(
       `가상계좌 1회 선택 가능 금액은 최대 ${MAX_AMOUNT.toLocaleString()}원입니다. 부족분 ${suggestedMin.toLocaleString()}원보다 적은 ${amount.toLocaleString()}원으로 진행합니다.`,
@@ -73,7 +84,6 @@ export async function runChargeDeposit(session: Session, suggestedMin?: number):
   printVirtualAccountOcrBlock(virtualAccount);
   log.dim('  은행 앱에서 위 계좌로 정확한 입금 금액을 송금하면 예치금으로 반영됩니다.');
 
-  const settings = await loadSettings();
   const proceed = await confirm({
     message: '송금을 완료했나요? 잔액 반영을 최대 5분간 확인합니다.',
     default: settings.defaultConfirmYes,
