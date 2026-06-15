@@ -2,9 +2,11 @@ import { input, select, confirm } from '@inquirer/prompts';
 import { openSession, type Session } from '../auth/session.js';
 import { log } from '../utils/log.js';
 import { randomPensionNumbers, validatePensionDigits } from '../utils/numbers.js';
-import { purchasePension, type UpsellDialogAction } from '../games/pension720.js';
+import { PENSION_MAX_GAMES_PER_PURCHASE, purchasePension, type UpsellDialogAction } from '../games/pension720.js';
 import { loadSettings } from '../utils/settings.js';
 import { ensureSufficientDeposit } from './chargeDeposit.js';
+
+const MAX_CHAINED_GAMES = 50;
 
 export async function promptPensionUpsellAction(): Promise<UpsellDialogAction> {
   return (await select({
@@ -29,11 +31,13 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
 
   const gameCount = Number(
     await input({
-      message: '게임 수 (1~5)',
+      message: `게임 수 (1~${MAX_CHAINED_GAMES}, ${PENSION_MAX_GAMES_PER_PURCHASE}게임 단위로 연속 구매)`,
       default: '1',
       validate: (v) => {
         const n = Number(v);
-        if (!Number.isInteger(n) || n < 1 || n > 5) return '1~5 사이의 정수를 입력해주세요';
+        if (!Number.isInteger(n) || n < 1 || n > MAX_CHAINED_GAMES) {
+          return `1~${MAX_CHAINED_GAMES} 사이의 정수를 입력해주세요`;
+        }
         return true;
       },
     })
@@ -76,6 +80,10 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
     ),
   );
   log.info(`총 결제 예정 금액: ${totalPrice.toLocaleString()}원`);
+  const batches = chunkGames(games, PENSION_MAX_GAMES_PER_PURCHASE);
+  if (batches.length > 1) {
+    log.info(`구매는 ${PENSION_MAX_GAMES_PER_PURCHASE}게임 단위로 ${batches.length}회 나누어 진행합니다.`);
+  }
 
   const settings = await loadSettings();
   const ok = await confirm({
@@ -97,16 +105,50 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
       return;
     }
 
-    const result = await purchasePension(session.page, {
-      mode,
-      games,
-      gameCount,
-      dryRun: false,
-      upsellDialogAction,
-    });
-    if (result.ok) log.success(result.message);
-    else log.error(result.message);
+    let purchasedGames = 0;
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i]!;
+      const batchPrice = calculatePensionPrice(batch);
+      log.step(
+        `연금복권 구매 ${i + 1}/${batches.length}: ${batch.length}게임 · ${batchPrice.toLocaleString()}원`,
+      );
+
+      const result = await purchasePension(session.page, {
+        mode,
+        games: batch,
+        gameCount: batch.length,
+        dryRun: false,
+        upsellDialogAction,
+      });
+
+      if (!result.ok) {
+        log.error(result.message);
+        if (purchasedGames > 0) {
+          log.warn(`앞선 ${purchasedGames}게임은 구매 완료됐을 수 있습니다. 구매내역에서 확인해주세요.`);
+        }
+        return;
+      }
+
+      purchasedGames += batch.length;
+      log.success(`[${i + 1}/${batches.length}] ${result.message}`);
+    }
+
+    log.success(`연금복권 연속 구매 완료: ${purchasedGames}게임`);
   } finally {
     if (!existing) await session.close();
   }
+}
+
+type PensionGame = { group: 'all' | number; digits: string };
+
+function chunkGames<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
+function calculatePensionPrice(games: PensionGame[]): number {
+  return games.reduce((sum, g) => sum + (g.group === 'all' ? 5000 : 1000), 0);
 }

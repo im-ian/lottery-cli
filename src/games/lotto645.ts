@@ -2,6 +2,8 @@ import type { Page } from 'playwright';
 import { config } from '../config.js';
 import { log } from '../utils/log.js';
 
+export const LOTTO_MAX_GAMES_PER_ROUND = 5;
+
 export interface LottoPurchaseRequest {
   mode: 'auto' | 'manual';
   games: number[][]; // each: 6 numbers 1~45 (manual). For auto: ignored; gameCount used.
@@ -30,6 +32,13 @@ export interface LottoPurchaseResult {
 }
 
 export async function purchaseLotto(page: Page, req: LottoPurchaseRequest): Promise<LottoPurchaseResult> {
+  if (req.gameCount > LOTTO_MAX_GAMES_PER_ROUND || req.games.length > LOTTO_MAX_GAMES_PER_ROUND) {
+    return {
+      ok: false,
+      message: `로또 6/45는 한 회차 최대 ${LOTTO_MAX_GAMES_PER_ROUND}게임(5,000원)까지만 구매할 수 있습니다.`,
+    };
+  }
+
   log.step('로또 구매 페이지 진입');
   await page.goto(config.urls.lotto645Buy, { waitUntil: 'networkidle', timeout: 30000 });
   await page.waitForTimeout(1000);

@@ -2,7 +2,7 @@ import { input, select, confirm } from '@inquirer/prompts';
 import { openSession, type Session } from '../auth/session.js';
 import { log } from '../utils/log.js';
 import { parseLottoNumbers, randomLottoNumbers, validateLottoNumbers } from '../utils/numbers.js';
-import { purchaseLotto, formatLottoReceiptLines } from '../games/lotto645.js';
+import { LOTTO_MAX_GAMES_PER_ROUND, purchaseLotto, formatLottoReceiptLines } from '../games/lotto645.js';
 import { loadSettings } from '../utils/settings.js';
 import { ensureSufficientDeposit } from './chargeDeposit.js';
 
@@ -17,11 +17,16 @@ export async function runLottoPurchase(existing?: Session): Promise<void> {
 
   const gameCount = Number(
     await input({
-      message: '게임 수 (1~5)',
-      default: '5',
+      message: `게임 수 (1~${LOTTO_MAX_GAMES_PER_ROUND}, 로또는 회차당 최대 ${LOTTO_MAX_GAMES_PER_ROUND}게임)`,
+      default: String(LOTTO_MAX_GAMES_PER_ROUND),
       validate: (v) => {
         const n = Number(v);
-        if (!Number.isInteger(n) || n < 1 || n > 5) return '1~5 사이의 정수를 입력해주세요';
+        if (!Number.isInteger(n) || n < 1) {
+          return `1~${LOTTO_MAX_GAMES_PER_ROUND} 사이의 정수를 입력해주세요`;
+        }
+        if (n > LOTTO_MAX_GAMES_PER_ROUND) {
+          return `로또 6/45는 한 회차 최대 ${LOTTO_MAX_GAMES_PER_ROUND}게임(5,000원)까지만 구매할 수 있습니다`;
+        }
         return true;
       },
     })
