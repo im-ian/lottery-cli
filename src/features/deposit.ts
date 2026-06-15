@@ -15,17 +15,10 @@ export async function getDeposit(page: Page): Promise<number> {
   await page.goto(config.urls.lotto645Buy, { waitUntil: 'domcontentloaded', timeout: 20000 });
   await page.waitForTimeout(500);
 
-  const deposit = await page
-    .locator('body')
-    .first()
-    .evaluate(() => {
-      const text = document.body.innerText || '';
-      // "보유예치금\n15,000\n원" 또는 "보유예치금 15,000원"
-      const m = text.match(/보유\s*예치금\s*([\d,]+)\s*원/);
-      if (m && m[1]) return Number(m[1].replace(/,/g, ''));
-      return NaN;
-    })
-    .catch(() => NaN);
+  const text = await page.locator('body').first().innerText().catch(() => '');
+  // "보유예치금\n15,000\n원" 또는 "보유예치금 15,000원"
+  const match = text.match(/보유\s*예치금\s*([\d,]+)\s*원/);
+  const deposit = match?.[1] ? Number(match[1].replace(/,/g, '')) : NaN;
 
   return Number.isNaN(deposit) ? 0 : deposit;
 }
