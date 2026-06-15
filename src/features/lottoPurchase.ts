@@ -56,8 +56,13 @@ export async function runLottoPurchase(existing?: Session): Promise<void> {
   log.info(`총 결제 예정 금액: ${totalPrice.toLocaleString()}원 (게임당 1,000원 × ${gameCount})`);
 
   const settings = await loadSettings();
+  if (settings.testMode) {
+    log.warn('테스트 모드 ON: 실제 결제는 진행하지 않고 결제 확인 팝업에서 취소합니다.');
+  }
   const ok = await confirm({
-    message: `${gameCount}게임 · ${totalPrice.toLocaleString()}원 실제 구매 진행?`,
+    message: settings.testMode
+      ? `${gameCount}게임 · ${totalPrice.toLocaleString()}원 테스트 구매 플로우 진행?`
+      : `${gameCount}게임 · ${totalPrice.toLocaleString()}원 실제 구매 진행?`,
     default: settings.defaultConfirmYes,
   });
   if (!ok) {
@@ -67,17 +72,19 @@ export async function runLottoPurchase(existing?: Session): Promise<void> {
 
   const session = existing ?? (await openSession());
   try {
-    const depositCheck = await ensureSufficientDeposit(session, totalPrice);
-    if (!depositCheck.ok) {
-      log.warn('예치금이 부족하여 구매를 진행하지 않습니다.');
-      return;
+    if (!settings.testMode) {
+      const depositCheck = await ensureSufficientDeposit(session, totalPrice);
+      if (!depositCheck.ok) {
+        log.warn('예치금이 부족하여 구매를 진행하지 않습니다.');
+        return;
+      }
     }
 
     const result = await purchaseLotto(session.page, {
       mode,
       games,
       gameCount,
-      dryRun: false,
+      dryRun: settings.testMode,
     });
     if (result.ok) {
       log.success(result.message);

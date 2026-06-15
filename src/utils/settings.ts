@@ -4,6 +4,8 @@ import path from 'node:path';
 export interface AppSettings {
   // 결제/구매 confirm prompt 기본값. true면 Y(default 'yes'), false면 N(default 'no').
   defaultConfirmYes: boolean;
+  // 실제 구매/충전 없이 결제 직전까지만 진행.
+  testMode: boolean;
   // 내역 조회 시 번호/조 등 베팅 상세를 숨기고 당첨 관련 정보만 출력.
   briefHistory: boolean;
   // 구매/당첨 내역 조회 후 요약 블록 추가 출력 여부.
@@ -12,6 +14,7 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   defaultConfirmYes: false,
+  testMode: false,
   briefHistory: false,
   summarizeHistory: false,
 };

@@ -43,8 +43,13 @@ export async function runAutoAll(session: Session, status: WeeklyStatus | null):
   log.info(`총 결제 예정 금액: ${total.toLocaleString()}원`);
 
   const settings = await loadSettings();
+  if (settings.testMode) {
+    log.warn('테스트 모드 ON: 실제 결제는 진행하지 않고 각 결제 확인 팝업에서 취소합니다.');
+  }
   const ok = await confirm({
-    message: `${total.toLocaleString()}원 실제 구매 진행?`,
+    message: settings.testMode
+      ? `${total.toLocaleString()}원 테스트 구매 플로우 진행?`
+      : `${total.toLocaleString()}원 실제 구매 진행?`,
     default: settings.defaultConfirmYes,
   });
   if (!ok) {
@@ -54,10 +59,12 @@ export async function runAutoAll(session: Session, status: WeeklyStatus | null):
 
   const upsellDialogAction = buyPension ? await promptPensionUpsellAction() : 'accept';
 
-  const depositCheck = await ensureSufficientDeposit(session, total);
-  if (!depositCheck.ok) {
-    log.warn('예치금이 부족하여 구매를 진행하지 않습니다.');
-    return;
+  if (!settings.testMode) {
+    const depositCheck = await ensureSufficientDeposit(session, total);
+    if (!depositCheck.ok) {
+      log.warn('예치금이 부족하여 구매를 진행하지 않습니다.');
+      return;
+    }
   }
 
   if (buyLotto) {
@@ -69,7 +76,7 @@ export async function runAutoAll(session: Session, status: WeeklyStatus | null):
         mode: 'auto',
         games,
         gameCount: GAMES_PER_TYPE,
-        dryRun: false,
+        dryRun: settings.testMode,
       });
       if (result.ok) {
         log.success(`[로또] ${result.message}`);
@@ -92,7 +99,7 @@ export async function runAutoAll(session: Session, status: WeeklyStatus | null):
         mode: 'auto',
         games,
         gameCount: GAMES_PER_TYPE,
-        dryRun: false,
+        dryRun: settings.testMode,
         upsellDialogAction,
       });
       if (result.ok) log.success(`[연금] ${result.message}`);

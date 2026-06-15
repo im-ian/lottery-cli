@@ -48,6 +48,7 @@ pnpm start
 | 옵션 | 기본 | 설명 |
 |---|---|---|
 | `defaultConfirmYes` | `false` | 결제 confirm prompt 의 Enter 기본값. `true` 면 Enter = Y |
+| `testMode` | `false` | 실제 구매/가상계좌 발급 없이 결제 직전까지만 진행 |
 | `briefHistory` | `false` | 내역 조회 시 번호/조/수량 등 베팅 상세 숨기고 추첨일·종류·회차·결과·당첨금만 출력 |
 | `summarizeHistory` | `false` | 내역 조회 결과 뒤에 종류별/결과별/총 구매·당첨·손익 요약 블록 추가 출력 |
 

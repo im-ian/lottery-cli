@@ -29,11 +29,15 @@ export async function runSettingsMenu(): Promise<void> {
           value: 'defaultConfirmYes',
         },
         {
-          name: `2. 조회 결과 간단히 출력  현재: ${current.briefHistory ? 'ON' : 'OFF'}`,
+          name: `2. 테스트 모드  현재: ${current.testMode ? 'ON' : 'OFF'}`,
+          value: 'testMode',
+        },
+        {
+          name: `3. 조회 결과 간단히 출력  현재: ${current.briefHistory ? 'ON' : 'OFF'}`,
           value: 'briefHistory',
         },
         {
-          name: `3. 조회 결과 요약 출력  현재: ${current.summarizeHistory ? 'ON' : 'OFF'}`,
+          name: `4. 조회 결과 요약 출력  현재: ${current.summarizeHistory ? 'ON' : 'OFF'}`,
           value: 'summarizeHistory',
         },
         { name: '메인으로 돌아가기', value: 'back' },
@@ -48,6 +52,7 @@ export async function runSettingsMenu(): Promise<void> {
 
     const next: AppSettings = { ...current };
     if (action === 'defaultConfirmYes') next.defaultConfirmYes = !current.defaultConfirmYes;
+    else if (action === 'testMode') next.testMode = !current.testMode;
     else if (action === 'briefHistory') next.briefHistory = !current.briefHistory;
     else if (action === 'summarizeHistory') next.summarizeHistory = !current.summarizeHistory;
 
@@ -60,6 +65,7 @@ function renderHeader(s: AppSettings): string[] {
   return [
     `${pc.cyan('ℹ')} 현재 설정:`,
     pc.dim(`  · confirm 기본 선택값: ${s.defaultConfirmYes ? 'Y (Enter=확인)' : 'N (Enter=취소)'}`),
+    pc.dim(`  · 테스트 모드: ${s.testMode ? 'ON (실제 결제/충전 안 함)' : 'OFF'}`),
     pc.dim(`  · 조회 결과 간단히 출력: ${s.briefHistory ? 'ON' : 'OFF'}`),
     pc.dim(`  · 조회 결과 요약 출력: ${s.summarizeHistory ? 'ON' : 'OFF'}`),
   ];
