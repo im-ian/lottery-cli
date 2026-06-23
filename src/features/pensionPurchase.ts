@@ -2,13 +2,20 @@ import { input, select, confirm } from '@inquirer/prompts';
 import { openSession, type Session } from '../auth/session.js';
 import { log } from '../utils/log.js';
 import { randomPensionNumbers, validatePensionDigits } from '../utils/numbers.js';
-import { PENSION_MAX_GAMES_PER_PURCHASE, purchasePension, type UpsellDialogAction } from '../games/pension720.js';
+import {
+  PENSION_ALL_GROUPS_PRICE,
+  PENSION_MAX_GAMES_PER_PURCHASE,
+  PENSION_SINGLE_GROUP_PRICE,
+  purchasePension,
+  type PensionGameSelection,
+  type UpsellDialogAction,
+} from '../games/pension720.js';
 import { loadSettings } from '../utils/settings.js';
 import { ensureSufficientDeposit } from './chargeDeposit.js';
 
 const MAX_CHAINED_GAMES = 50;
 
-type PensionPromptMode = 'auto' | 'manual' | 'back';
+type PensionPromptMode = 'auto' | 'auto-all-groups' | 'manual' | 'back';
 type PensionGroupChoice = 'all' | '1' | '2' | '3' | '4' | '5' | 'back';
 
 export async function promptPensionUpsellAction(): Promise<UpsellDialogAction> {
@@ -28,6 +35,7 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
     message: '번호 선택 방식',
     choices: [
       { name: '자동 (랜덤)', value: 'auto' },
+      { name: '자동 모든 조 (같은 번호 1~5조)', value: 'auto-all-groups' },
       { name: '수동 (직접 입력)', value: 'manual' },
       { name: '◀ 메인으로 돌아가기', value: 'back' },
     ],
@@ -37,7 +45,10 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
 
   const gameCount = Number(
     await input({
-      message: `게임 수 (1~${MAX_CHAINED_GAMES}, ${PENSION_MAX_GAMES_PER_PURCHASE}게임 단위로 연속 구매)`,
+      message:
+        mode === 'auto-all-groups'
+          ? `세트 수 (1~${MAX_CHAINED_GAMES}, 1세트=모든 조 5장, ${PENSION_ALL_GROUPS_PRICE.toLocaleString()}원)`
+          : `게임 수 (1~${MAX_CHAINED_GAMES}, ${PENSION_MAX_GAMES_PER_PURCHASE}게임 단위로 연속 구매)`,
       default: '1',
       validate: (v) => {
         const n = Number(v);
@@ -49,7 +60,7 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
     })
   );
 
-  const games: { group: 'all' | number; digits: string }[] = [];
+  const games: PensionGameSelection[] = [];
   if (mode === 'manual') {
     for (let i = 0; i < gameCount; i++) {
       const groupRaw = await select<PensionGroupChoice>({
@@ -72,6 +83,10 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
       });
       games.push({ group, digits });
     }
+  } else if (mode === 'auto-all-groups') {
+    for (let i = 0; i < gameCount; i++) {
+      games.push({ group: 'all', digits: '' });
+    }
   } else {
     for (let i = 0; i < gameCount; i++) {
       const r = randomPensionNumbers();
@@ -79,18 +94,24 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
     }
   }
 
-  const totalPrice = games.reduce((sum, g) => sum + (g.group === 'all' ? 5000 : 1000), 0);
+  const purchaseMode = mode === 'manual' ? 'manual' : 'auto';
+  const countUnit = mode === 'auto-all-groups' ? '세트' : '게임';
+  const totalPrice = calculatePensionPrice(games);
 
   log.info('선택된 번호:');
   games.forEach((g, i) =>
     log.dim(
-      `  ${i + 1}. ${g.group === 'all' ? '모든 조 (5,000원)' : `${g.group}조 (1,000원)`} ${mode === 'auto' ? '(자동)' : g.digits}`,
+      `  ${i + 1}. ${
+        g.group === 'all'
+          ? `모든 조 (${PENSION_ALL_GROUPS_PRICE.toLocaleString()}원)`
+          : `${g.group}조 (${PENSION_SINGLE_GROUP_PRICE.toLocaleString()}원)`
+      } ${purchaseMode === 'auto' ? '(자동)' : g.digits}`,
     ),
   );
   log.info(`총 결제 예정 금액: ${totalPrice.toLocaleString()}원`);
   const batches = chunkGames(games, PENSION_MAX_GAMES_PER_PURCHASE);
   if (batches.length > 1) {
-    log.info(`구매는 ${PENSION_MAX_GAMES_PER_PURCHASE}게임 단위로 ${batches.length}회 나누어 진행합니다.`);
+    log.info(`구매는 ${PENSION_MAX_GAMES_PER_PURCHASE}${countUnit} 단위로 ${batches.length}회 나누어 진행합니다.`);
   }
 
   const settings = await loadSettings();
@@ -99,8 +120,8 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
   }
   const ok = await confirm({
     message: settings.testMode
-      ? `${gameCount}게임 · ${totalPrice.toLocaleString()}원 테스트 구매 플로우 진행?`
-      : `${gameCount}게임 · ${totalPrice.toLocaleString()}원 실제 구매 진행?`,
+      ? `${gameCount}${countUnit} · ${totalPrice.toLocaleString()}원 테스트 구매 플로우 진행?`
+      : `${gameCount}${countUnit} · ${totalPrice.toLocaleString()}원 실제 구매 진행?`,
     default: settings.defaultConfirmYes,
   });
   if (!ok) {
@@ -125,11 +146,11 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
       const batch = batches[i]!;
       const batchPrice = calculatePensionPrice(batch);
       log.step(
-        `연금복권 구매 ${i + 1}/${batches.length}: ${batch.length}게임 · ${batchPrice.toLocaleString()}원`,
+        `연금복권 구매 ${i + 1}/${batches.length}: ${batch.length}${countUnit} · ${batchPrice.toLocaleString()}원`,
       );
 
       const result = await purchasePension(session.page, {
-        mode,
+        mode: purchaseMode,
         games: batch,
         gameCount: batch.length,
         dryRun: settings.testMode,
@@ -139,7 +160,7 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
       if (!result.ok) {
         log.error(result.message);
         if (purchasedGames > 0) {
-          log.warn(`앞선 ${purchasedGames}게임은 구매 완료됐을 수 있습니다. 구매내역에서 확인해주세요.`);
+          log.warn(`앞선 ${purchasedGames}${countUnit}은 구매 완료됐을 수 있습니다. 구매내역에서 확인해주세요.`);
         }
         return;
       }
@@ -148,13 +169,11 @@ export async function runPensionPurchase(existing?: Session): Promise<void> {
       log.success(`[${i + 1}/${batches.length}] ${result.message}`);
     }
 
-    log.success(`연금복권 연속 구매 완료: ${purchasedGames}게임`);
+    log.success(`연금복권 연속 구매 완료: ${purchasedGames}${countUnit}`);
   } finally {
     if (!existing) await session.close();
   }
 }
-
-type PensionGame = { group: 'all' | number; digits: string };
 
 function chunkGames<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -164,6 +183,9 @@ function chunkGames<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-function calculatePensionPrice(games: PensionGame[]): number {
-  return games.reduce((sum, g) => sum + (g.group === 'all' ? 5000 : 1000), 0);
+export function calculatePensionPrice(games: PensionGameSelection[]): number {
+  return games.reduce(
+    (sum, g) => sum + (g.group === 'all' ? PENSION_ALL_GROUPS_PRICE : PENSION_SINGLE_GROUP_PRICE),
+    0,
+  );
 }

@@ -10,6 +10,10 @@ export interface AppSettings {
   briefHistory: boolean;
   // 구매/당첨 내역 조회 후 요약 블록 추가 출력 여부.
   summarizeHistory: boolean;
+  // "모두 자동 구매"에서 연금복권을 모든 조로 구매할지 여부.
+  autoAllPensionAllGroups: boolean;
+  // 위 옵션을 자동 활성화하기 위한 최소 예치금.
+  autoAllPensionAllGroupsMinDeposit: number;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -17,10 +21,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   testMode: false,
   briefHistory: false,
   summarizeHistory: false,
+  autoAllPensionAllGroups: false,
+  autoAllPensionAllGroupsMinDeposit: 25000,
 };
 
 const SETTINGS_DIR = path.resolve(process.cwd(), '.lottery-auto');
 const SETTINGS_FILE = path.join(SETTINGS_DIR, 'settings.json');
+const MIN_AUTO_ALL_PENSION_ALL_GROUPS_DEPOSIT = 5000;
 
 let cache: AppSettings | null = null;
 
@@ -29,7 +36,7 @@ export async function loadSettings(): Promise<AppSettings> {
   try {
     const raw = await fs.readFile(SETTINGS_FILE, 'utf-8');
     const parsed = JSON.parse(raw) as Partial<AppSettings>;
-    cache = { ...DEFAULT_SETTINGS, ...parsed };
+    cache = normalizeSettings(parsed);
   } catch {
     cache = { ...DEFAULT_SETTINGS };
   }
@@ -44,4 +51,17 @@ export async function saveSettings(next: AppSettings): Promise<void> {
 
 export function getSettingsSync(): AppSettings {
   return cache ?? { ...DEFAULT_SETTINGS };
+}
+
+function normalizeSettings(parsed: Partial<AppSettings>): AppSettings {
+  const merged = { ...DEFAULT_SETTINGS, ...parsed };
+  const minDeposit = Number(merged.autoAllPensionAllGroupsMinDeposit);
+  return {
+    ...merged,
+    autoAllPensionAllGroups: merged.autoAllPensionAllGroups === true,
+    autoAllPensionAllGroupsMinDeposit:
+      Number.isFinite(minDeposit) && minDeposit >= MIN_AUTO_ALL_PENSION_ALL_GROUPS_DEPOSIT
+        ? Math.floor(minDeposit)
+        : DEFAULT_SETTINGS.autoAllPensionAllGroupsMinDeposit,
+  };
 }
