@@ -4,10 +4,17 @@ import { log } from '../utils/log.js';
 
 export type UpsellDialogAction = 'accept' | 'dismiss';
 export const PENSION_MAX_GAMES_PER_PURCHASE = 5;
+export const PENSION_SINGLE_GROUP_PRICE = 1000;
+export const PENSION_ALL_GROUPS_PRICE = 5000;
+
+export interface PensionGameSelection {
+  group: 'all' | number;
+  digits: string;
+}
 
 export interface PensionPurchaseRequest {
   mode: 'auto' | 'manual';
-  games: { group: 'all' | number; digits: string }[];
+  games: PensionGameSelection[];
   gameCount: number;
   dryRun: boolean;
   // 모든조 구매 권유 native confirm dialog 처리 방식.

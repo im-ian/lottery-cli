@@ -4,21 +4,32 @@ import type { Session } from '../auth/session.js';
 import { log } from '../utils/log.js';
 import { randomLottoNumbers, randomPensionNumbers } from '../utils/numbers.js';
 import { purchaseLotto, formatLottoReceiptLines } from '../games/lotto645.js';
-import { purchasePension } from '../games/pension720.js';
-import { promptPensionUpsellAction } from './pensionPurchase.js';
+import { purchasePension, type PensionGameSelection } from '../games/pension720.js';
+import { calculatePensionPrice, promptPensionUpsellAction } from './pensionPurchase.js';
 import { loadSettings } from '../utils/settings.js';
 import { ensureSufficientDeposit } from './chargeDeposit.js';
+import { getDeposit } from './deposit.js';
 import type { WeeklyStatus } from './weeklyStatus.js';
 
 const GAMES_PER_TYPE = 5;
 const LOTTO_GAME_PRICE = 1000;
-const PENSION_GAME_PRICE = 1000;
 
 export async function runAutoAll(session: Session, status: WeeklyStatus | null): Promise<void> {
+  const settings = await loadSettings();
   const buyLotto = !status?.lotto645.purchased;
   // 연금복권 720+ 는 회차당 다회 구매 가능 → 이미 구매 여부와 무관하게 항상 진행.
   const buyPension = true;
   const pensionAlreadyBought = !!status?.pension720.purchased;
+  const deposit = settings.testMode ? null : await getDeposit(session.page).catch(() => null);
+
+  const lottoTotal = buyLotto ? GAMES_PER_TYPE * LOTTO_GAME_PRICE : 0;
+  const pensionPlan = buildPensionPlan({
+    useAllGroups: settings.autoAllPensionAllGroups,
+    minDeposit: settings.autoAllPensionAllGroupsMinDeposit,
+    deposit,
+    lottoTotal,
+    testMode: settings.testMode,
+  });
 
   log.info('모두 자동 구매 계획:');
   console.log(
@@ -28,21 +39,21 @@ export async function runAutoAll(session: Session, status: WeeklyStatus | null):
   );
   console.log(
     pensionAlreadyBought
-      ? pc.cyan(`  · 연금복권 720+ 자동 ${GAMES_PER_TYPE}게임 (${(GAMES_PER_TYPE * PENSION_GAME_PRICE).toLocaleString()}원) — 이번 주 이미 구매했지만 추가 구매 진행`)
-      : pc.cyan(`  · 연금복권 720+ 자동 ${GAMES_PER_TYPE}게임 (${(GAMES_PER_TYPE * PENSION_GAME_PRICE).toLocaleString()}원)`),
+      ? pc.cyan(`  · ${pensionPlan.label} — 이번 주 이미 구매했지만 추가 구매 진행`)
+      : pc.cyan(`  · ${pensionPlan.label}`),
   );
+  if (pensionPlan.disabledReason) {
+    console.log(pc.dim(`    ↳ 연금 모든 조 자동 구매 비활성화: ${pensionPlan.disabledReason}`));
+  }
 
   if (!buyLotto && !buyPension) {
     log.warn('실행할 작업이 없습니다.');
     return;
   }
 
-  const total =
-    (buyLotto ? GAMES_PER_TYPE * LOTTO_GAME_PRICE : 0) +
-    (buyPension ? GAMES_PER_TYPE * PENSION_GAME_PRICE : 0);
+  const total = lottoTotal + (buyPension ? pensionPlan.totalPrice : 0);
   log.info(`총 결제 예정 금액: ${total.toLocaleString()}원`);
 
-  const settings = await loadSettings();
   if (settings.testMode) {
     log.warn('테스트 모드 ON: 실제 결제는 진행하지 않고 각 결제 확인 팝업에서 취소합니다.');
   }
@@ -91,14 +102,10 @@ export async function runAutoAll(session: Session, status: WeeklyStatus | null):
     console.log();
     log.step('── [2/2] 연금복권 720+ 자동 구매 ──');
     try {
-      const games = Array.from({ length: GAMES_PER_TYPE }, () => {
-        const r = randomPensionNumbers();
-        return { group: r.group as number | 'all', digits: r.digits };
-      });
       const result = await purchasePension(session.page, {
         mode: 'auto',
-        games,
-        gameCount: GAMES_PER_TYPE,
+        games: pensionPlan.games,
+        gameCount: pensionPlan.games.length,
         dryRun: settings.testMode,
         upsellDialogAction,
       });
@@ -108,4 +115,74 @@ export async function runAutoAll(session: Session, status: WeeklyStatus | null):
       log.error(`[연금] 예외: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
+}
+
+interface PensionPlanInput {
+  useAllGroups: boolean;
+  minDeposit: number;
+  deposit: number | null;
+  lottoTotal: number;
+  testMode: boolean;
+}
+
+interface PensionPlan {
+  games: PensionGameSelection[];
+  totalPrice: number;
+  label: string;
+  disabledReason: string;
+}
+
+function buildPensionPlan(input: PensionPlanInput): PensionPlan {
+  const standardGames = buildStandardPensionGames();
+  const standardPrice = calculatePensionPrice(standardGames);
+
+  if (!input.useAllGroups) {
+    return {
+      games: standardGames,
+      totalPrice: standardPrice,
+      label: `연금복권 720+ 자동 ${GAMES_PER_TYPE}게임 (${standardPrice.toLocaleString()}원)`,
+      disabledReason: '',
+    };
+  }
+
+  const allGroupGames = buildAllGroupPensionGames();
+  const allGroupPrice = calculatePensionPrice(allGroupGames);
+  const requiredTotal = input.lottoTotal + allGroupPrice;
+  const minDeposit = Math.max(input.minDeposit, allGroupPrice);
+
+  let disabledReason = '';
+  if (!input.testMode && input.deposit === null) {
+    disabledReason = '예치금 조회 실패';
+  } else if (!input.testMode && input.deposit !== null && input.deposit < minDeposit) {
+    disabledReason = `보유 ${input.deposit.toLocaleString()}원 < 최소 ${minDeposit.toLocaleString()}원`;
+  } else if (!input.testMode && input.deposit !== null && input.deposit < requiredTotal) {
+    disabledReason = `보유 ${input.deposit.toLocaleString()}원 < 구매 예정 ${requiredTotal.toLocaleString()}원`;
+  }
+
+  if (disabledReason) {
+    return {
+      games: standardGames,
+      totalPrice: standardPrice,
+      label: `연금복권 720+ 자동 ${GAMES_PER_TYPE}게임 (${standardPrice.toLocaleString()}원)`,
+      disabledReason,
+    };
+  }
+
+  return {
+    games: allGroupGames,
+    totalPrice: allGroupPrice,
+    label: `연금복권 720+ 자동 모든 조 ${GAMES_PER_TYPE}세트 (${allGroupPrice.toLocaleString()}원)`,
+    disabledReason: '',
+  };
+}
+
+function buildStandardPensionGames(): PensionGameSelection[] {
+  return Array.from({ length: GAMES_PER_TYPE }, () => {
+    const r = randomPensionNumbers();
+    return { group: r.group, digits: r.digits };
+  });
+}
+
+function buildAllGroupPensionGames(): PensionGameSelection[] {
+  return Array.from({ length: GAMES_PER_TYPE }, () => ({ group: 'all', digits: '' }));
 }

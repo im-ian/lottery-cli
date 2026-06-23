@@ -115,7 +115,7 @@ async function runBuyFlow(session: Session): Promise<void> {
     message: '어떤 복권을 구매할까요? (Esc: 메인으로)',
     choices: [
       {
-        name: '⚡ 모두 자동 구매 (로또 5게임 + 연금 5게임, 최대 10,000원)',
+        name: '⚡ 모두 자동 구매 (로또 5게임 + 연금 자동)',
         value: 'auto-all',
         disabled: lottoBoughtReason,
       },
